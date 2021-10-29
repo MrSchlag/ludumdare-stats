@@ -1,5 +1,7 @@
 import requests
 from datetime import date
+import numpy as np
+import matplotlib.pyplot as plt
 
 max_page_size = 250
 event_category = 'jam'
@@ -39,18 +41,27 @@ def get_games(ids, event_id):
     games = []
     while offset < len(ids):
         ids_slice = ids[offset:offset + max_page_size]
-        request = 'https://api.ldjam.com/vx/node/get/' + "+".join([str(id) for id in ids_slice])
-        print(request)
-        r = requests.get(request)
+        r = requests.get('https://api.ldjam.com/vx/node/get/' + "+".join([str(id) for id in ids_slice]))
         json = r.json()
         [games.append(game) for game in json['node'] if game_filter(game, event_id, event_category)]
         offset += max_page_size
+        print(offset)
     return games
 
+def create_plots(games):
+    averages_overall = [game['magic']['grade-01-average'] for game in games if "grade-01-average" in game['magic']]
+    n_bins = 128
+    fig, axs = plt.subplots()
+    axs.hist(np.array(averages_overall), bins=n_bins)
+    plt.show()
 
+
+#create_plots(10)
+print("get event...")
 event = get_event_node_id(49)
-print(event)
-ids = get_game_node_ids(date.fromisoformat(event['meta']['event-start'][0:10]) )
+print("get nodes...")
+ids = get_game_node_ids(date.fromisoformat(event['meta']['event-start'][0:10]))
+print("get games...")
 games = get_games(ids, event['id'])
-
+create_plots(games)
 print(len(games))
