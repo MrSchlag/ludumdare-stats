@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 
 max_page_size = 250
 event_category = 'jam'
+grade_category = 'grade-02-average'
 
 def get_event_node_id(ld_number):
     payload = {'offset': 0, 'limit': max_page_size}
@@ -34,7 +35,7 @@ def get_game_node_ids(min_date):
     return ids
 
 def game_filter(game, event_id, category):
-    return game['parent'] == event_id and game['subsubtype'] == category
+    return game['parent'] == event_id and game['subsubtype'] == category and 'grade' in game['magic'] and game['magic']['grade'] >= 20
 
 def get_games(ids, event_id):
     offset = 0
@@ -48,13 +49,36 @@ def get_games(ids, event_id):
         print(offset)
     return games
 
-def create_plots(games):
-    averages_overall = [game['magic']['grade-01-average'] for game in games if "grade-01-average" in game['magic']]
-    n_bins = 128
-    fig, axs = plt.subplots()
-    axs.hist(np.array(averages_overall), bins=n_bins)
-    plt.show()
+def select_average_grade(grade_name, games):
+    return [game['magic'][grade_name] for game in games if grade_name in game['magic']]
 
+def get_average_grade_slices(games, n_bins):
+    i = 0
+    game_lenght = len(games)
+    step = int(game_lenght / n_bins)
+    slices = []
+    games_sorted = sorted([game for game in games if 'grade-01-average' in game['magic']], key=lambda i:i['magic']['grade-01-average'])
+    while i < n_bins:
+        slice = games_sorted[i * step:(i * step) + step]
+        slices.append(np.mean([game['magic']['grade'] for game in slice]))
+        i += 1
+    return slices
+
+def create_plots(games):
+    n_bins = 64
+    fig, axs = plt.subplots()
+
+    n, bins, patches = axs.hist(np.array(select_average_grade('grade-01-average', games)), bins=n_bins)
+    print(len(bins))
+    average_grades_slices = get_average_grade_slices(games, len(bins))
+    axs.plot(bins, average_grades_slices)
+    #axs[2].hist(np.array(select_average_grade('grade-03-average', games)), bins=n_bins, density=True)
+    #axs[3].hist(np.array(select_average_grade('grade-04-average', games)), bins=n_bins, density=True)
+    #axs[4].hist(np.array(select_average_grade('grade-05-average', games)), bins=n_bins, density=True)
+    #axs[5].hist(np.array(select_average_grade('grade-06-average', games)), bins=n_bins, density=True)
+    #axs[6].hist(np.array(select_average_grade('grade-07-average', games)), bins=n_bins, density=True)
+    #axs[7].hist(np.array(select_average_grade('grade-08-average', games)), bins=n_bins, density=True)
+    plt.show()
 
 #create_plots(10)
 print("get event...")
