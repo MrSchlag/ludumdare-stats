@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 max_page_size = 250
 event_category = 'jam'
-grade_category = 'grade-02-average'
+grade_category = 'grade-01-average'
 
 def get_event_node_id(ld_number):
     payload = {'offset': 0, 'limit': max_page_size}
@@ -35,7 +35,7 @@ def get_game_node_ids(min_date):
     return ids
 
 def game_filter(game, event_id, category):
-    return game['parent'] == event_id and game['subsubtype'] == category and 'grade' in game['magic'] and game['magic']['grade'] >= 20 and 'grade-01-average' in game['magic']
+    return game['parent'] == event_id and game['subsubtype'] == category and 'grade' in game['magic'] and game['magic']['grade'] >= 20 and grade_category in game['magic']
 
 def get_games(ids, event_id):
     offset = 0
@@ -54,8 +54,8 @@ def select_average_grade(grade_name, games):
 
 def is_game_in_slice(bins, n_bins, i, game):
     if i + 1 < n_bins:
-        return game['magic']['grade-01-average'] >= bins[i] and game['magic']['grade-01-average'] < bins[i + 1]
-    return game['magic']['grade-01-average'] >= bins[i]
+        return game['magic'][grade_category] >= bins[i] and game['magic'][grade_category] < bins[i + 1]
+    return game['magic'][grade_category] >= bins[i]
 
 
 def get_average_grade_slices(games, bins):
@@ -77,11 +77,13 @@ def create_plots(games):
     n_bins = 16
     fig, axs = plt.subplots()
 
-    n, bins, patches = axs.hist(np.array(select_average_grade('grade-01-average', games)), bins=n_bins)
+    n, bins, patches = axs.hist(np.array(select_average_grade(grade_category, games)), bins=n_bins)
     average_grades_slices, average_grades_slices_std, grade_slice_raw = get_average_grade_slices(games, bins)
     axs.plot(bins, average_grades_slices)
     axs.plot(bins, average_grades_slices_std, '--')
-    axs.boxplot(grade_slice_raw, positions=bins, widths=0.03, manage_ticks=False)
+    bplot = axs.boxplot(grade_slice_raw, positions=bins, widths=0.05, manage_ticks=False, patch_artist=True)
+    for patch in bplot['boxes']:
+        patch.set_facecolor('lightgreen')
     #axs.tick_params(bottom=False)
     #axs[2].hist(np.array(select_average_grade('grade-03-average', games)), bins=n_bins, density=True)
     #axs[3].hist(np.array(select_average_grade('grade-04-average', games)), bins=n_bins, density=True)
