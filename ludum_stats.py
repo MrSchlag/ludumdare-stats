@@ -1,3 +1,4 @@
+from matplotlib import colors
 import requests
 from datetime import date
 import numpy as np
@@ -23,7 +24,7 @@ def get_game_node_ids(min_date):
     date_index = date.max
     offset = 0
     ids = []
-    while date_index > min_date:# and offset < 250:
+    while date_index > min_date: #and offset < 250:
         payload = {'offset': offset, 'limit': offset + max_page_size}
         r = requests.get('https://api.ldjam.com/vx/node/feed/1/all/item/game', params=payload)
         json = r.json()
@@ -35,7 +36,7 @@ def get_game_node_ids(min_date):
     return ids
 
 def game_filter(game, event_id, category):
-    return game['parent'] == event_id and game['subsubtype'] == category and 'grade' in game['magic'] and game['magic']['grade'] >= 20 and grade_category in game['magic']
+    return game['parent'] == event_id and game['subsubtype'] == category and 'grade' in game['magic'] and game['magic']['grade'] >= 20 and grade_category in game['magic'] and 'given' in game['magic']
 
 def get_games(ids, event_id):
     offset = 0
@@ -62,28 +63,37 @@ def get_average_grade_slices(games, bins):
     i = 0
     n_bins = len(bins)
     slices = []
+    slices_given = []
     slices_stdev = []
     grade_slice_raw = []
     while i < n_bins:
         slice = [game for game in games if is_game_in_slice(bins, n_bins, i, game)]
         grades = [game['magic']['grade'] for game in slice]
+        given = [game['magic']['given'] for game in slice]
+        
         grade_slice_raw.append(grades)
         slices.append(np.mean(grades))
         slices_stdev.append(np.std(grades))
+        slices_given.append(np.mean(given))
+        
         i += 1
-    return slices, slices_stdev, grade_slice_raw
+    return slices, slices_stdev, grade_slice_raw, slices_given
 
 def create_plots(games):
     n_bins = 16
     fig, axs = plt.subplots()
 
     n, bins, patches = axs.hist(np.array(select_average_grade(grade_category, games)), bins=n_bins)
-    average_grades_slices, average_grades_slices_std, grade_slice_raw = get_average_grade_slices(games, bins)
-    axs.plot(bins, average_grades_slices)
-    axs.plot(bins, average_grades_slices_std, '--')
+    average_grades_slices, average_grades_slices_std, grade_slice_raw, slices_given = get_average_grade_slices(games, bins)
+    
+    axs.plot(bins, average_grades_slices, label='avg grade')
+    given_avg_lines = axs.plot(bins, slices_given, label='avg given')
+    axs.plot(bins, average_grades_slices_std, '--', label='stdev grade')
     bplot = axs.boxplot(grade_slice_raw, positions=bins, widths=0.05, manage_ticks=False, patch_artist=True)
     for patch in bplot['boxes']:
         patch.set_facecolor('lightgreen')
+
+    [line.set_color('cyan') for line in given_avg_lines]
     #axs.tick_params(bottom=False)
     #axs[2].hist(np.array(select_average_grade('grade-03-average', games)), bins=n_bins, density=True)
     #axs[3].hist(np.array(select_average_grade('grade-04-average', games)), bins=n_bins, density=True)
@@ -91,6 +101,7 @@ def create_plots(games):
     #axs[5].hist(np.array(select_average_grade('grade-06-average', games)), bins=n_bins, density=True)
     #axs[6].hist(np.array(select_average_grade('grade-07-average', games)), bins=n_bins, density=True)
     #axs[7].hist(np.array(select_average_grade('grade-08-average', games)), bins=n_bins, density=True)
+    axs.legend()
     plt.show()
 
 #create_plots(10)
