@@ -23,7 +23,7 @@ def get_game_node_ids(min_date):
     date_index = date.max
     offset = 0
     ids = []
-    while date_index > min_date:
+    while date_index > min_date:# and offset < 250:
         payload = {'offset': offset, 'limit': offset + max_page_size}
         r = requests.get('https://api.ldjam.com/vx/node/feed/1/all/item/game', params=payload)
         json = r.json()
@@ -35,7 +35,7 @@ def get_game_node_ids(min_date):
     return ids
 
 def game_filter(game, event_id, category):
-    return game['parent'] == event_id and game['subsubtype'] == category and 'grade' in game['magic'] and game['magic']['grade'] >= 20
+    return game['parent'] == event_id and game['subsubtype'] == category and 'grade' in game['magic'] and game['magic']['grade'] >= 20 and 'grade-01-average' in game['magic']
 
 def get_games(ids, event_id):
     offset = 0
@@ -52,26 +52,37 @@ def get_games(ids, event_id):
 def select_average_grade(grade_name, games):
     return [game['magic'][grade_name] for game in games if grade_name in game['magic']]
 
-def get_average_grade_slices(games, n_bins):
+def is_game_in_slice(bins, n_bins, i, game):
+    if i + 1 < n_bins:
+        return game['magic']['grade-01-average'] >= bins[i] and game['magic']['grade-01-average'] < bins[i + 1]
+    return game['magic']['grade-01-average'] >= bins[i]
+
+
+def get_average_grade_slices(games, bins):
     i = 0
-    game_lenght = len(games)
-    step = int(game_lenght / n_bins)
+    n_bins = len(bins)
     slices = []
-    games_sorted = sorted([game for game in games if 'grade-01-average' in game['magic']], key=lambda i:i['magic']['grade-01-average'])
+    slices_stdev = []
+    grade_slice_raw = []
     while i < n_bins:
-        slice = games_sorted[i * step:(i * step) + step]
-        slices.append(np.mean([game['magic']['grade'] for game in slice]))
+        slice = [game for game in games if is_game_in_slice(bins, n_bins, i, game)]
+        grades = [game['magic']['grade'] for game in slice]
+        grade_slice_raw.append(grades)
+        slices.append(np.mean(grades))
+        slices_stdev.append(np.std(grades))
         i += 1
-    return slices
+    return slices, slices_stdev, grade_slice_raw
 
 def create_plots(games):
-    n_bins = 64
+    n_bins = 16
     fig, axs = plt.subplots()
 
     n, bins, patches = axs.hist(np.array(select_average_grade('grade-01-average', games)), bins=n_bins)
-    print(len(bins))
-    average_grades_slices = get_average_grade_slices(games, len(bins))
+    average_grades_slices, average_grades_slices_std, grade_slice_raw = get_average_grade_slices(games, bins)
     axs.plot(bins, average_grades_slices)
+    axs.plot(bins, average_grades_slices_std, '--')
+    axs.boxplot(grade_slice_raw, positions=bins, widths=0.03, manage_ticks=False)
+    #axs.tick_params(bottom=False)
     #axs[2].hist(np.array(select_average_grade('grade-03-average', games)), bins=n_bins, density=True)
     #axs[3].hist(np.array(select_average_grade('grade-04-average', games)), bins=n_bins, density=True)
     #axs[4].hist(np.array(select_average_grade('grade-05-average', games)), bins=n_bins, density=True)
